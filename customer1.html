@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Customer Dashboard — Retail Mini-ATM</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#2563eb;--muted:#6b7280;--bg:#f4f7ff;--card:#fff;--radius:14px;font-family:Inter,system-ui,sans-serif;}
+body{margin:0;padding:20px;background:var(--bg);color:#0f172a;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+.logout{background:#ef4444;color:white;padding:8px 14px;border-radius:8px;text-decoration:none;}
+.card{background:var(--card);padding:20px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,0.05);margin-bottom:18px;}
+h3{margin-top:0}
+label{display:block;margin-top:8px;color:var(--muted);}
+.form-col{max-width:420px;}
+input, select{width:100%;padding:10px;border-radius:10px;border:1px solid #e2e8f0;margin-top:8px;box-sizing:border-box;}
+button.btn{width:100%;padding:12px;border-radius:10px;border:none;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;margin-top:12px;}
+.table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}
+th{background:#f3f6ff}
+.status-pending{color:#c27803;font-weight:600} .status-success{color:#059669;font-weight:600} .status-failed{color:#dc2626;font-weight:600}
+</style>
+</head>
+<body>
+<div class="topbar"><h2>Customer Dashboard</h2><a href="#" id="logoutBtn" class="logout">Logout</a></div>
+
+<div class="card">
+  <h3>Your Profile</h3>
+  <p><strong>Name:</strong> <span id="custName"></span></p>
+  <p><strong>Bank Details:</strong> <span id="custBank"></span></p>
+</div>
+
+<div class="card">
+  <h3>Withdraw Cash</h3>
+  <div class="form-col">
+    <label>Retail Stores Near By You</label>
+    <select id="storeSelect"></select>
+
+    <label>Amount (₹)</label>
+    <input id="amountInput" type="number" placeholder="Enter amount">
+
+    <button id="makePaymentBtn" class="btn">Make Payment</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Your Transactions</h3>
+  <table id="txTable" class="table"><tr><th>Time</th><th>Store</th><th>Amount</th><th>Code</th><th>Status</th></tr></table>
+</div>
+
+<div id="pinModalRoot"></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+const cust = RW.getCurrentCustomer(); if(!cust){ location.href='login.html'; }
+document.getElementById('custName').textContent = cust.name;
+document.getElementById('custBank').textContent = cust.bank.name + " • **** " + cust.bank.last4;
+document.getElementById('logoutBtn').onclick = ()=>{ RW.logoutCustomer(); location.href='login.html'; };
+
+function loadStores(){ const stores = RW.getStores(); const sel = document.getElementById('storeSelect'); sel.innerHTML=''; stores.forEach(s=> sel.innerHTML += `<option value="${s.id}">${s.name} (₹${s.cash})</option>`); }
+loadStores();
+
+document.getElementById('makePaymentBtn').onclick = ()=>{
+  const storeId = Number(document.getElementById('storeSelect').value);
+  const amt = Number(document.getElementById('amountInput').value);
+  if(!amt || amt<=0){ alert('Enter a valid amount'); return; }
+  const bankLabel = cust.bank.name + " • **** " + cust.bank.last4;
+  const tx = RW.createTransaction(cust.name, bankLabel, storeId, amt);
+  openPinModal(tx.id);
+};
+
+function openPinModal(txId){
+  const root = document.getElementById('pinModalRoot');
+  root.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;justify-content:center;align-items:center;z-index:999;">
+      <div style="width:360px;max-width:92%;background:#fff;padding:28px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:18px;align-items:stretch;">
+        <h3 style="margin:0;font-size:18px;color:#0f172a">Enter UPI PIN</h3>
+        <input id="pinInput" type="password" placeholder="****" style="width:100%;padding:12px;border-radius:10px;border:1px solid #e2e8f0;box-sizing:border-box;text-align:center;letter-spacing:8px;font-size:18px">
+        <button id="pinBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#2563eb;color:#fff;font-weight:600;cursor:pointer">Verify PIN</button>
+      </div>
+    </div>`;
+  document.getElementById('pinBtn').onclick = ()=>{
+    const p = document.getElementById('pinInput').value.trim();
+    if(!RW.validatePinForCustomer(cust.username, p)){ alert('Incorrect PIN'); root.innerHTML=''; return; }
+    const code = RW.generateWithdrawCode(txId);
+    alert('Payment Completed.\nYour Withdrawal Code: ' + code);
+    root.innerHTML=''; loadTx();
+  };
+}
+
+function loadTx(){ const txs = RW.getTx(); const stores = RW.getStores(); const codes = JSON.parse(localStorage.getItem(RW.KEY.WITHDRAW_CODES) || "{}"); const myTx = txs.filter(t=>t.customerName===cust.name); const table = document.getElementById('txTable'); table.innerHTML = `<tr><th>Time</th><th>Store</th><th>Amount</th><th>Code</th><th>Status</th></tr>`; myTx.forEach(t=>{ const store = stores.find(s=>s.id===t.storeId); const code = (codes && codes[t.id]?.code) ? codes[t.id].code : '-'; table.innerHTML += `<tr><td>${new Date(t.ts).toLocaleString()}</td><td>${store?store.name:'-'}</td><td>${RW.formatINR(t.amount)}</td><td>${code}</td><td class="status-${t.status.toLowerCase()}">${t.status}</td></tr>`; }); }
+loadTx();
+</script>
+</body>
+</html>
