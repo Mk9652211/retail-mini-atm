@@ -17,6 +17,7 @@
   --muted:#6b7280;
   font-family:Inter,system-ui,sans-serif;
 }
+
 body{
   margin:0; min-height:100vh;
   background:
@@ -26,60 +27,103 @@ body{
   display:flex; align-items:center; justify-content:center;
   padding:30px; color:var(--text);
 }
+
 .container{
   width:1150px; max-width:100%;
   display:grid; grid-template-columns:1.2fr .8fr; gap:40px;
 }
+
 .hero{ padding:40px; }
+
 .badge{
   display:inline-block; padding:6px 16px; border-radius:999px;
   background:var(--main-grad); color:#fff; font-size:12px; font-weight:600;
 }
+
 .hero h1{ font-size:44px; margin:18px 0; font-weight:800; }
+
 .hero h1 span{
   background:var(--main-grad);
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
 }
+
 .hero p{ font-size:16px; color:var(--muted); max-width:520px; }
+
 .stats{
   margin-top:30px;
   display:grid; grid-template-columns:repeat(3,1fr); gap:20px;
 }
+
 .stat{
   padding:22px; border-radius:20px;
   background:var(--card-grad);
   box-shadow:0 12px 30px rgba(99,102,241,.18);
 }
+
 .stat h3{ margin:0; font-size:22px; }
 .stat span{ font-size:13px; color:var(--muted); }
 
+/* LOGIN CARD */
 .login{
   background:var(--login-grad);
   border-radius:28px;
   padding:36px;
   box-shadow:0 30px 70px rgba(99,102,241,.25);
 }
+
 .login h3{ margin:0; font-size:26px; }
 .login p{ margin:6px 0 18px; color:var(--muted); font-size:14px; }
 
-label{ display:block; margin-top:14px; font-size:13px; color:var(--muted); }
-input,select{
-  width:100%; padding:14px; border-radius:14px;
-  border:1px solid #e5e7eb; margin-top:6px; font-size:15px;
+label{
+  display:block;
+  margin-top:14px;
+  font-size:13px;
+  color:var(--muted);
 }
-button{
-  width:100%; margin-top:22px; padding:15px;
-  border:none; border-radius:18px;
-  background:var(--main-grad);
-  color:white; font-weight:600; font-size:16px; cursor:pointer;
-}
-.otp{ margin-top:18px; display:none; }
-.otp input{
-  text-align:center; letter-spacing:4px; font-weight:700;
-}
-#msg{ margin-top:10px; font-size:13px; color:#b91c1c; }
 
+/* 🔥 UNIFIED SIZE FOR INPUTS, SELECT & BUTTONS */
+input, select, button{
+  width:100%;
+  height:52px;          /* SAME HEIGHT */
+  padding:0 16px;
+  font-size:15px;
+  border-radius:14px;
+  box-sizing:border-box;
+}
+
+/* INPUTS */
+input, select{
+  border:1px solid #e5e7eb;
+  margin-top:6px;
+}
+
+/* BUTTONS */
+button{
+  margin-top:22px;
+  border:none;
+  background:var(--main-grad);
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+}
+
+/* OTP */
+.otp{ margin-top:18px; display:none; }
+
+.otp input{
+  text-align:center;
+  letter-spacing:4px;
+  font-weight:700;
+}
+
+#msg{
+  margin-top:10px;
+  font-size:13px;
+  color:#b91c1c;
+}
+
+/* TOAST */
 #toast{
   position:fixed; top:22px; left:50%;
   transform:translateX(-50%);
@@ -147,8 +191,6 @@ button{
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="shared.js"></script>
 
-
-
 <script>
 const btnNext = document.getElementById("btnNext");
 const btnVerify = document.getElementById("btnVerify");
@@ -183,7 +225,7 @@ btnNext.onclick=()=>{
   }
 
   const otp=RW.sendLoginOTP(u);
-  showToast("Demo OTP: "+otp);
+  showToast("Your Login OTP is: "+otp);
 
   otpArea.style.display="block";
   otpInput.focus();
