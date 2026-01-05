@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>:root{--bg:#f4f7ff;--card:#fff;--muted:#6b7280;--radius:14px;font-family:Inter,system-ui,sans-serif}body{margin:0;padding:20px;background:var(--bg);color:#0f172a} .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.logout{background:#ef4444;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none}.card{background:var(--card);padding:20px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,0.05);margin-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#f3f6ff}.btn-reset{background:#2563eb;color:#fff;padding:10px 14px;border:none;border-radius:8px;cursor:pointer}.status-pending{color:#c27803;font-weight:600}.status-success{color:#059669;font-weight:600}.status-failed{color:#dc2626;font-weight:600}</style></head><body>
+<div class="topbar"><h2>Admin Dashboard</h2><a href="#" id="logoutBtn" class="logout">Logout</a></div>
+<div class="card"><h3>Welcome, <span id="adminName"></span></h3></div>
+<div class="card"><h3>Store Overview</h3><table id="storeTable"><tr><th>Store Name</th><th>Available Cash</th><th>Total Commission</th></tr></table></div>
+<div class="card"><h3>All Transactions</h3><table id="txTable"><tr><th>Time</th><th>Customer</th><th>Store</th><th>Amount</th><th>Status</th></tr></table></div>
+<div class="card"><h3>Reset Data</h3><button class="btn-reset" onclick="RW.resetAll()">Reset All System Data</button></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+const admin = RW.getCurrentAdmin(); if(!admin) location.href='login.html';
+document.getElementById('adminName').textContent = admin.name;
+document.getElementById('logoutBtn').onclick = ()=>{RW.logoutAdmin(); location.href='login.html'};
+function loadStores(){ const stores = RW.getStores(); const table = document.getElementById('storeTable'); table.innerHTML = '<tr><th>Store Name</th><th>Available Cash</th><th>Total Commission</th></tr>'; stores.forEach(s=> table.innerHTML += `<tr><td>${s.name}</td><td>${RW.formatINR(s.cash)}</td><td>${RW.formatINR(s.commission)}</td></tr>`); }
+function loadTx(){ const txs = RW.getTx(); const stores = RW.getStores(); const table = document.getElementById('txTable'); table.innerHTML = '<tr><th>Time</th><th>Customer</th><th>Store</th><th>Amount</th><th>Status</th></tr>'; txs.forEach(t=>{ const store = stores.find(s=>s.id===t.storeId); table.innerHTML += `<tr><td>${new Date(t.ts).toLocaleString()}</td><td>${t.customerName}</td><td>${store?store.name:'-'}</td><td>${RW.formatINR(t.amount)}</td><td class="status-${t.status.toLowerCase()}">${t.status}</td></tr>`; }); }
+loadStores(); loadTx();
+</script></body></html>
