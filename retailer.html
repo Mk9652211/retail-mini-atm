@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Retailer Dashboard — Retail Mini-ATM</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#2563eb;--muted:#6b7280;--bg:#f4f7ff;--card:#fff;--radius:14px;font-family:Inter,system-ui,sans-serif;}
+body{margin:0;padding:20px;background:var(--bg);color:#0f172a;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+.top-actions{display:flex;gap:10px;align-items:center;}
+.btn-update{background:#2563eb;color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;}
+.logout{background:#ef4444;color:white;padding:8px 14px;border-radius:8px;text-decoration:none;}
+.card{background:var(--card);padding:20px;border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,0.05);margin-bottom:18px;}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:12px;border-bottom:1px solid #e5e7eb;text-align:left}
+th{background:#f3f6ff}
+button.btn{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;color:white;font-size:14px}
+.btn-success{background:#059669} .btn-cancel{background:#dc2626}
+.status-pending{color:#c27803;font-weight:600} .status-success{color:#059669;font-weight:600} .status-failed{color:#dc2626;font-weight:600}
+.modal-input{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #e2e8f0;text-align:center;font-size:16px}
+</style>
+</head>
+<body>
+<div class="topbar"><h2>Retailer Dashboard</h2><div class="top-actions"><button class="btn-update" id="updateCashBtn">Update Cash</button><a href="#" id="logoutBtn" class="logout">Logout</a></div></div>
+
+<div class="card"><h3>Your Store</h3><p><b>Name:</b> <span id="storeName"></span></p><p><b>Available Cash:</b> <span id="storeCash"></span></p><p><b>Total Commission Earned:</b> <span id="storeComm"></span></p></div>
+
+<div class="card"><h3>Pending Withdrawal Requests</h3><table id="pendingTable"><tr><th>Time</th><th>Customer</th><th>Amount</th><th>Status</th><th>Actions</th></tr></table></div>
+
+<div class="card"><h3>Transaction Records</h3><table id="historyTable"><tr><th>Time</th><th>Customer</th><th>Amount</th><th>Status</th></tr></table></div>
+
+<div id="codeModalRoot"></div>
+<div id="updateModalRoot"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+const retailer = RW.getCurrentRetailer(); if(!retailer) location.href='login.html';
+document.getElementById('logoutBtn').onclick = ()=>{ RW.logoutRetailer(); location.href='login.html'; };
+const storeId = retailer.storeId;
+
+function loadStoreInfo(){ const stores = RW.getStores(); const s = stores.find(x=>x.id===storeId); document.getElementById('storeName').textContent = s.name; document.getElementById('storeCash').textContent = RW.formatINR(s.cash); document.getElementById('storeComm').textContent = RW.formatINR(s.commission); }
+loadStoreInfo();
+
+function loadTables(){
+  const txs = RW.getTx().filter(t=>t.storeId===storeId);
+  const pending = document.getElementById('pendingTable'), history = document.getElementById('historyTable');
+  pending.innerHTML = '<tr><th>Time</th><th>Customer</th><th>Amount</th><th>Status</th><th>Actions</th></tr>';
+  history.innerHTML = '<tr><th>Time</th><th>Customer</th><th>Amount</th><th>Status</th></tr>';
+  txs.forEach(t=>{
+    const row = `<td>${new Date(t.ts).toLocaleString()}</td><td>${t.customerName}</td><td>${RW.formatINR(t.amount)}</td>`;
+    if(t.status === 'Pending'){
+      pending.innerHTML += `<tr>${row}<td class="status-pending">Pending</td><td><button class="btn btn-success" onclick="openCodeModal('${t.id}')">Verify & Pay</button> <button class="btn btn-cancel" onclick="cancelTx('${t.id}')">Cancel</button></td></tr>`;
+    } else {
+      history.innerHTML += `<tr>${row}<td class="status-${t.status.toLowerCase()}">${t.status}</td></tr>`;
+    }
+  });
+}
+loadTables();
+
+function cancelTx(txId){ RW.retailerCancel(txId); alert('Request Cancelled.'); loadStoreInfo(); loadTables(); }
+
+function openCodeModal(txId){
+  const root = document.getElementById('codeModalRoot');
+  root.innerHTML = `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;justify-content:center;align-items:center;z-index:999;">
+    <div style="width:420px;max-width:92%;background:#fff;padding:28px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:18px;align-items:stretch;">
+      <h3 style="margin:0;font-size:18px;color:#0f172a">Enter Withdrawal Code</h3>
+      <input id="codeInput" class="modal-input" placeholder="123456">
+      <button id="verifyBtn" style="width:100%;padding:12px;border-radius:10px;border:none;background:#059669;color:#fff;font-weight:600;cursor:pointer">Verify Code</button>
+    </div></div>`;
+  document.getElementById('verifyBtn').onclick = ()=>{
+    const code = document.getElementById('codeInput').value.trim();
+    const res = RW.retailerVerifyCode(txId, code);
+    document.getElementById('codeModalRoot').innerHTML='';
+    if(!res.ok){ alert(res.msg); loadTables(); return; }
+    alert('Payment Completed Successfully!\nPlease hand over the cash to the customer.');
+    loadStoreInfo(); loadTables();
+  };
+}
+
+document.getElementById('updateCashBtn').onclick = ()=>{
+  const root = document.getElementById('updateModalRoot');
+  root.innerHTML = `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;justify-content:center;align-items:center;z-index:999;">
+    <div style="width:360px;max-width:92%;background:#fff;padding:22px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:14px;align-items:stretch;">
+      <h3 style="margin:0;font-size:18px;color:#0f172a">Update Available Cash</h3>
+      <input id="newCash" class="modal-input" placeholder="Enter amount (numbers only)">
+      <div style="display:flex;gap:10px"><button id="saveCash" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:600">Save</button><button id="cancelCash" style="flex:1;padding:10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff">Cancel</button></div>
+    </div></div>`;
+  document.getElementById('cancelCash').onclick = ()=>{ document.getElementById('updateModalRoot').innerHTML=''; };
+  document.getElementById('saveCash').onclick = ()=>{
+    const val = document.getElementById('newCash').value.trim(); const num = Number(val);
+    if(isNaN(num) || num < 0){ alert('Enter a valid non-negative number'); return; }
+    const stores = RW.getStores(); const s = stores.find(x=>x.id===storeId); s.cash = num; RW.saveStores(stores); document.getElementById('updateModalRoot').innerHTML=''; loadStoreInfo(); loadTables();
+  };
+};
+</script>
+</body>
+</html>
